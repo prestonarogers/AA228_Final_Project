@@ -88,7 +88,7 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     
     
     # generate observation
-    o = sp
+    o = []
 
     # generate reward
 
@@ -98,6 +98,8 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
         r = p.rockReward - EuclDistReward
     elseif isequal(RC_state_next, p.homePosition)  # reaching home reward
         r = p.reachingHomeReward - EuclDistReward
+    elseif isequal(RC_state_next, police_state_next)  # hitting a police (need to make it "entering perimeter" instead -- use p.gettingCaughtDist).
+        r = p.policeReward - EuclDistReward
     else
         r = p.movementReward - EuclDistReward  # just the reward for making a movement
     end

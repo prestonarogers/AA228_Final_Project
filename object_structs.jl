@@ -7,6 +7,42 @@ using BasicPOMCP
 using POMDPSimulators
 using Parameters
 
+abstract type collideableObjects end
+
+@with_kw mutable struct rcBoat <: collideableObjects
+    width::Int64 = 3
+    height::Int64 = 3
+
+    # We do not have a default position
+    position::Tuple = (0,0)
+
+    reward::Float64 = 0.0
+end
+
+@with_kw mutable struct policeBoat <: collideableObjects
+    width::Int64 = 3
+    height::Int64 = 3
+
+    # We do not have a default position
+    position::Tuple = (0,0)
+
+    reward::Float64 = -100.0 # reward for getting caught to a police boat (should be highly negative!)
+end
+
+@with_kw mutable struct sailBoat <: collideableObjects
+    width::Int64 = 5
+    height::Int64 = 5
+
+    # We do not have a default position
+    position::Tuple = (0,0)
+
+    reward::Float64 = -20.0
+end
+
+@with_kw mutable struct pond
+    width::Int64 = 20
+    height::Int64 = 20
+end
 
 mutable struct RCBoatProblem <: POMDPs.POMDP{AbstractArray,Tuple,AbstractArray}
     # To simplify things, define every parameter related to the problem in this struct!
@@ -25,41 +61,4 @@ mutable struct RCBoatProblem <: POMDPs.POMDP{AbstractArray,Tuple,AbstractArray}
 
     gettingCaughtDist::Float64  # Euclidean distance that will make us get caught to the police
     discountFactor::Float64  # discount factor (gamma)
-end
-
-abstract type collideableObjects end
-
-@with_kw mutable struct rcBoat 
-    width::Int64 = 3
-    height::Int64 = 3
-
-    # We do not have a default position
-    position::Tuple = (0,0)
-
-    reward::Float64 = 0.0
-end
-
-@with_kw mutable struct policeBoat
-    width::Int64 = 3
-    height::Int64 = 3
-
-    # We do not have a default position
-    position::Tuple = (0,0)
-
-    reward::Float64 = -100.0 # reward for getting caught to a police boat (should be highly negative!)
-end
-
-@with_kw mutable struct sailBoat
-    width::Int64 = 5
-    height::Int64 = 5
-
-    # We do not have a default position
-    position::Tuple = (0,0)
-
-    reward::Float64 = -20.0
-end
-
-@with_kw mutable struct pond
-    width::Int64 = 20
-    height::Int64 = 20
 end

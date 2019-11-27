@@ -11,9 +11,7 @@ Note: The following numbers are ascribed to objects-
 4 - police-boats
 5 - HOME!
 =#
-pond = 0
-old_pond = 0
-new_pond = 0
+
 function goToYourHome()
     # Below creates the pond matrix
     pond, home_pos, sail_dict, police_dict, current_dir = initializePond()

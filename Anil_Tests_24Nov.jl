@@ -15,12 +15,12 @@ mutable struct RCBoatProblem <: POMDPs.POMDP{AbstractArray,Tuple,AbstractArray}
     actionSpace::AbstractArray  # all possible actions takeable (checks legallity later)
     rockPositions::AbstractArray  # where are the rocks?
 
+    state::AbstractArray # The state that includes all of the object locations
+
     homePosition::Tuple  # where am I trying to reach?
-    RC_initialPosition::Tuple  # where did the boat start at?
-    police_initialPosition::Tuple  # where did the police start at?
 
     rockReward::Float64  # reward for hitting a rock (should be negative!)
-    policeReward::Float64  # reward for getting caught to a police boat (should be highly negative!)
+
     movementReward::Float64  # for each action I take, there should be a cost (should be negative!)
     reachingHomeReward::Float64  # reward for reaching home (should be highly positive!)
 
@@ -28,18 +28,30 @@ mutable struct RCBoatProblem <: POMDPs.POMDP{AbstractArray,Tuple,AbstractArray}
     discountFactor::Float64  # discount factor (gamma)
 end
 
+myPond = pond(height=20, width=20)
 
 # All possible states and actions
-allStates = [(i,j) for i in collect(1:20) for j in collect(1:20)];
+allStates = [(i,j) for i in collect(1:pond.height) for j in collect(1:pond.width)];
 allActions = [(i,j) for i in collect(-1:1) for j in collect(-1:1)];
+
+# Define how many rocks there will be on the GridWorld, and place them randomly
+total_rocks = 5
+total_policeBoats = 1
+total_sailBoats = 3
+
+homePosition = (21,20) # where am I trying to reach?
+initialPosition = (5,5) # where did the boat start at?
+
+# Create the starting state array.
+starting_state = createEnvironment(pond, total_policeBoats, total_sailBoats)
 
 # Define how many rocks there will be on the GridWorld, and place them randomly
 num_of_rocks_to_create = 30
 rocks = rand(allStates, num_of_rocks_to_create)
 
-pomdp = RCBoatProblem(allStates, allActions, rocks, (21,20), (5,5), (10,10), -5, -1000, -1, 10000, 10, 0.8)
+pomdp = RCBoatProblem(allStates, allActions, rocks, starting_state, homePosition, -5, -1, 10000, 10, 0.8)
 discount(p::RCBoatProblem) = p.discountFactor
-isterminal(p::RCBoatProblem, s::AbstractArray) = isequal(s[1],p.homePosition)
+isterminal(p::RCBoatProblem, s::AbstractArray) = isequal(s[1].position,p.homePosition)
 initialstate_distribution(p::RCBoatProblem) = Deterministic([p.RC_initialPosition, p.police_initialPosition]);
 
 
@@ -49,9 +61,12 @@ function EuclideanDistance(a,b)
 end
 
 # Check if the action is legal (does not go outside the limits of the lake).
-function isActionLegal(p::RCBoatProblem, s::AbstractArray, a::Tuple)
-    RC_state_next = Tuple(collect(s[1])+collect(a))  # just add s and a
-    if !(RC_state_next in p.stateSpace)  # if not in stateSpace
+function isActionLegal(p::RCBoatProblem, pond::pond, s::AbstractArray, a::Tuple)
+    # The first object in our state is our rcBoat
+    RC_state_next = rcBoat(position=Tuple(collect(s[1].position)+collect(a))  # just add s and a
+
+    # If the rcBoat would collide with the pond in this scenario return false.
+    if wallCollisionDetected(pond, RC_state_next)
         return false
     else
         return true
@@ -59,13 +74,15 @@ function isActionLegal(p::RCBoatProblem, s::AbstractArray, a::Tuple)
 end
 
 # All possible action, regardless of state (Throws error if you don't put this line).
-actions(p::RCBoatProblem) = allActions
+actions(p::RCBoatProblem, myPond) = allActions
 
 # Legal possible actions takeable in a certain state.
-function actions(p::RCBoatProblem,s::AbstractArray)
+function actions(p::RCBoatProblem, s::AbstractArray)
+    global pond
+
     allowedActions = []
     for a in p.actionSpace
-        if isActionLegal(p,s,a)
+        if isActionLegal(p, pond, s,a)
             push!(allowedActions,a)
         end
     end
@@ -75,37 +92,29 @@ end
 noise(x) = ceil(Int, abs(x - 5)/sqrt(2) + 1e-2)
 
 function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
+    global pond
+
     # generate next state
-    RC_state_now = s[1]
-    police_state_now = s[2]
-
-    RC_state_next = Tuple(collect(s[1])+collect(a))  # just add s and a
-    police_state_next = police_state_now
-
-    # sp (next state) is an Array <: AbstractArray of Tuples.
-    # First element of this Array should always be the RC boat.
-    sp = [RC_state_next, police_state_next]
-
+    sp = transitionModel(p, s, a)
 
     # generate observation
     o = []
 
     # generate reward
-
+    RC_state_now = s[1].position
     EuclDistReward = EuclideanDistance(p.homePosition,RC_state_now)
 
-    if RC_state_next in p.rockPositions  # hitting rock reward
-        r = p.rockReward - EuclDistReward
-    elseif isequal(RC_state_next, p.homePosition)  # reaching home reward
-        r = p.reachingHomeReward - EuclDistReward
-    elseif isequal(RC_state_next, police_state_next)  # hitting a police (need to make it "entering perimeter" instead -- use p.gettingCaughtDist).
-        r = p.policeReward - EuclDistReward
-    else
-        r = p.movementReward - EuclDistReward  # just the reward for making a movement
+    r = -1.*EuclDistReward
+    r = r + rockCollisionReward(rcBoat::rcBoat, p.rockPositions, p.rockReward)
+
+    # We skip over the first object because that is our RC boat.
+    for object in p.sp[2:end]
+        if collisionDetected(p.state[1], object)
+            r = r + object.reward
+        end
     end
 
     return (sp=sp, o=o, r=r)
-
 end
 
 
@@ -122,3 +131,6 @@ end
 # b = initialstate_distribution(pomdp)
 # a = action(planner, b)
 # println("Action $a selected for $b.")
+
+
+# Work on gen function so that it works with the structs

@@ -32,11 +32,15 @@ initialstate_distribution(p::RCBoatProblem) = Deterministic([p.state[object_inde
 function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     global myPond
 
-    state = p.state
+    state = deepcopy(p.state)
+    for object_index in 1:length(state)
+        state[object_index].position = s[object_index]
+    end
+
     A_s = actions(p, state)
 
     # generate next state
-    next_state = transitionModel(p, p.state, a)
+    next_state = transitionModel(p, state, a)
 
     sp = []
     for object in next_state
@@ -71,7 +75,7 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
             r = r + object.reward
         end
     end
-println((s=s, sp=sp, o=o, r=r))
+    println((s=s, sp=sp, o=o, r=r))
     return (sp=sp, o=o, r=r)
 end
 

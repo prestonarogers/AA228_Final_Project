@@ -1,7 +1,7 @@
 # Below is used to create the multivariate gaussians
 using Distributions
 
-include("Anil_Tests_24Nov.jl")
+include("object_structs.jl")
 
 # We want to return a somewhat random observation based
 # on the input parameters
@@ -9,34 +9,45 @@ function observationModel(s_prime)
     # In this case, the observation is independent of
     # the action taken given s_prime
 
+    # Create the observation variable
+    observation = copy(s_prime)
+
     # The actual new position of our boat
-    a = collect(s_prime[1])
+    a = collect(s_prime[1].position)
 
-    # The actual new position of the police boat
-    b = collect(s_prime[2])
+    for object_index in 1:length(s_prime[2:end])
+        # The actual new position of the police boat
+        b = collect(s_prime[object_index].position)
 
-    euclidean_dist = EuclideanDistance(a,b)
+        euclidean_dist = EuclideanDistance(a,b)
 
-    police_var = max(euclidean_dist/10,2).*ones(2)
+        object_var = max(euclidean_dist/10,2).*ones(2)
 
-    # The normal distribution for picking the observed
-    # police-boat location
-    police_normal = MvNormal(b, police_var)
+        # The normal distribution for picking the observed
+        # police-boat location
+        object_normal = MvNormal(b, object_var)
+
+        # Obtain sample from the distribution
+        object_obs = rand(police_normal, 1)
+
+        object_obs_floor = Tuple(trunc.(Int, object_obs))
+
+        observation[object_index].position = object_obs_floor
+    end
 
     rc_var = ones(2)
 
     rc_normal = MvNormal(a, rc_var)
 
-    # Obtain samples from the two distributions
-    police_obs = rand(police_normal, 1)
-
     rc_obs = rand(rc_normal, 1)
 
     rc_obs_floor = Tuple(trunc.(Int, rc_obs))
-    police_obs_floor = Tuple(trunc.(Int, police_obs))
+
+    # Set the rcBoat's position in the observation array to the sample
+    observation[1].position = rc_obs_floor
 
     # Return the complete observation
-    return (rc_obs_floor, police_obs_floor)
+    return observation
 end
 
 # Below is the transition model (which depends on the police direction)
@@ -101,49 +112,37 @@ function transitionModel(p::RCBoatProblem, s, a)
     return s_prime
 end
 
-# Below is an example of how the transition model
-# can be used
-s_prime = transitionModel(pomdp, ((2,1),(9,3)), (1,1), π)
-println(s_prime)
-
-# Below is an example of how the observation model
-# can be used
-observation = observationModel(s_prime)
-println(observation)
-
-
-function createEnvironment(pond::pond, initialPosition, total_policeBoats, total_sailBoats)
+function createEnvironment(myPond::pond, initialPosition, total_policeBoats, total_sailBoats)
     # Initialize the state array
     state = []
 
     # All the possible x and y positions
-    pond_x = collect(1:pond.width)
-    pond_y = collect(1:pond.height)
+    pond_x = collect(1:myPond.width)
+    pond_y = collect(1:myPond.height)
 
     wallCollision = true
     collision = true
 
     # Create the RC boat
-    rcBoat = rcBoat(position=initialPosition)
+    myRcBoat = rcBoat(position=initialPosition)
 
     push!(state, rcBoat)
 
     for i in 1:total_policeBoats
         # Create the policeBoat variable.
-        policeBoat = nothing
+        policeBoat_temp = policeBoat(position=(0,0))
 
         wallCollision = true
         collision = true
 
         while(wallCollision || collision)
-
-
             pos_x = rand(pond_x)
             pos_y = rand(pond_y)
 
-            policeBoat = policeBoat(position=(pos_x,pos_y))
-
-            wallCollision = wallCollisionDetected(pond,policeBoat)
+            policeBoat_temp.position = (pos_x,pos_y)
+println(pond)
+println("HELLO")
+            wallCollision = wallCollisionDetected(myPond,policeBoat_temp)
 
             # Reset collision variable to false.
             collision = false
@@ -151,14 +150,21 @@ function createEnvironment(pond::pond, initialPosition, total_policeBoats, total
             # Iterate through the objects in the state and make sure we
             # don't collide with any.
             for object in state
+                println(object)
+                println("HELLO T")
                 # If we haven't collided with anything yet, run this code
                 if !collision
-                    collision = collisionDetected(object, policeBoat)
+
+                    collision = collisionDetected(object, policeBoat_temp)
                 end
             end
         end
 
-        push!(state, policeBoat)
+        push!(state, policeBoat_temp)
+
+        println("police boat # $i")
+        println(state)
+        println()
     end
 
     for i in 1:total_sailBoats
@@ -168,15 +174,15 @@ function createEnvironment(pond::pond, initialPosition, total_policeBoats, total
         wallCollision = true
         collision = true
 
+        sailBoat_temp = sailBoat(position=(0,0))
+
         while(wallCollision || collision)
-
-
             pos_x = rand(pond_x)
             pos_y = rand(pond_y)
 
-            sailBoat = sailBoat(position=(pos_x,pos_y))
+            sailBoat_temp.position = (pos_x,pos_y)
 
-            wallCollision = wallCollisionDetected(pond,sailBoat)
+            wallCollision = wallCollisionDetected(myPond,sailBoat_temp)
 
             # Reset collision variable to false.
             collision = false
@@ -186,36 +192,44 @@ function createEnvironment(pond::pond, initialPosition, total_policeBoats, total
             for object in state
                 # If we haven't collided with anything yet, run this code
                 if !collision
-                    collision = collisionDetected(object, sailBoat)
+                    collision = collisionDetected(object, sailBoat_temp)
                 end
             end
         end
 
-        push!(state, sailBoat)
+        push!(state, sailBoat_temp)
+
+        println("sail boat # $i")
+        println(state)
+        println()
     end
 
     return state
 end
 
-function wallCollisionDetected(pond::pond, object::collideableObjects)
+function wallCollisionDetected(myPond::pond, object)
     # If any of these conditions are satisfied, things aren't gucci.
     if object.position[1]-(object.width-1)/2 < 1
         return true
     end
-    if object.position[1]+(object.width-1)/2 > pond.width
+    if object.position[1]+(object.width-1)/2 > myPond.width
         return true
     end
     if object.position[2]+(object.height-1)/2 < 1
         return true
     end
-    if object.position[2]+(object.height-1)/2 > pond.height
+    if object.position[2]+(object.height-1)/2 > myPond.height
         return true
     end
 
     return false
 end
 
-function collisionDetected(object1::collideableObjects, object2::collideableObjects)
+function collisionDetected(object1, object2)
+
+    println(object1)
+    println(object2)
+    println("HIIII")
     # We want the positions to be based on the top left corners
     # of the object for this collision detected function.
     object1_top_left_x = object1.position[1]-(object1.width-1)/2
@@ -237,7 +251,7 @@ end
 
 
 function rockCollisionReward(rcBoat::rcBoat, rocks, rockReward)
-    rcBoat_top_left_x = trunct(Int, rcBoat.position[1]-(rcBoat.width-1)/2)
+    rcBoat_top_left_x = trunc(Int, rcBoat.position[1]-(rcBoat.width-1)/2)
     rcBoat_top_left_y = trunc(Int, rcBoat.position[2]+(rcBoat.height-1)/2)
 
     # Create an array of tuples for all the squares the rcBoat takes up
@@ -252,4 +266,40 @@ function rockCollisionReward(rcBoat::rcBoat, rocks, rockReward)
     end
 
     return 0.0
+end
+
+# Calculate the Euclidean distance between point a and b.
+function EuclideanDistance(a,b)
+    return sqrt((a[1]-b[1])^2 + (a[2]-b[2])^2)
+end
+
+# Check if the action is legal (does not go outside the limits of the lake).
+function isActionLegal(p::RCBoatProblem, pond::pond, s::AbstractArray, a::Tuple)
+    # The first object in our state is our rcBoat
+    RC_state_next = rcBoat(position=Tuple(collect(s[1].position)+collect(a)))  # just add s and a
+
+    # If the rcBoat would collide with the pond in this scenario return false.
+    if wallCollisionDetected(pond, RC_state_next)
+        return false
+    else
+        return true
+    end
+end
+
+#noise(x) = ceil(Int, abs(x - 5)/sqrt(2) + 1e-2)
+
+# All possible action, regardless of state (Throws error if you don't put this line).
+actions(p::RCBoatProblem, myPond) = allActions
+
+# Legal possible actions takeable in a certain state.
+function actions(p::RCBoatProblem, s::AbstractArray)
+    global pond
+
+    allowedActions = []
+    for a in p.actionSpace
+        if isActionLegal(p, pond, s,a)
+            push!(allowedActions,a)
+        end
+    end
+    return allowedActions
 end

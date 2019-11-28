@@ -14,7 +14,7 @@ mutable struct RCBoatProblem <: POMDPs.POMDP{AbstractArray,Tuple,AbstractArray}
     stateSpace::AbstractArray  # the entire GridWorld
     actionSpace::AbstractArray  # all possible actions takeable (checks legallity later)
     rockPositions::AbstractArray  # where are the rocks?
-    
+
     homePosition::Tuple  # where am I trying to reach?
     RC_initialPosition::Tuple  # where did the boat start at?
     police_initialPosition::Tuple  # where did the police start at?
@@ -23,7 +23,7 @@ mutable struct RCBoatProblem <: POMDPs.POMDP{AbstractArray,Tuple,AbstractArray}
     policeReward::Float64  # reward for getting caught to a police boat (should be highly negative!)
     movementReward::Float64  # for each action I take, there should be a cost (should be negative!)
     reachingHomeReward::Float64  # reward for reaching home (should be highly positive!)
-    
+
     gettingCaughtDist::Float64  # Eucledean distance that will make us get caught to the police
     discountFactor::Float64  # discount factor (gamma)
 end
@@ -87,8 +87,8 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     # sp (next state) is an Array <: AbstractArray of Tuples.
     # First element of this Array should always be the RC boat.
     sp = [RC_state_next, police_state_next]
-    
-    
+
+
     # generate observation
     o = s
 
@@ -112,7 +112,7 @@ end
 
 
 
-solver = POMCPSolver(tree_queries=10, c=10)
+solver = POMCPSolver(tree_queries=1000, c=10)
 planner = solve(solver, pomdp);
 
 for (s,a,r,sp,o) in stepthrough(pomdp, planner, "s,a,r,sp,o")

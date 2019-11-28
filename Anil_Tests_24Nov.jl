@@ -27,7 +27,7 @@ rocks = rand(allStates, num_of_rocks_to_create)
 pomdp = RCBoatProblem(allStates, allActions, rocks, starting_state, homePosition, -5, -1, 10000, 10, 0.8)
 discount(p::RCBoatProblem) = p.discountFactor
 isterminal(p::RCBoatProblem, s::AbstractArray) = isequal(s[1],p.homePosition)
-initialstate_distribution(p::RCBoatProblem) = Deterministic([p.state[object_index].position for object_index in 1:length(p.state)]);
+initialstate_distribution(p::RCBoatProblem) = Deterministic(Tuple{Int, Int}[p.state[object_index].position for object_index in 1:length(p.state)]);
 
 function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     global myPond
@@ -40,10 +40,11 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     A_s = actions(p, state)
 
     # generate next state
-    #next_state = transitionModel(p, state, a)
-    next_state = deepcopy(state)
-    next_state[1].position = Tuple(collect(next_state[1].position)+collect(a))
-    next_state[2].position = Tuple(collect(next_state[2].position)+collect(rand(p.actionSpace)))
+    next_state = transitionModel(p, state, a)
+    #next_state = deepcopy(state)
+    #next_state[1].position = Tuple(collect(next_state[1].position)+collect(a))
+    #randomAction = collect(rand(p.actionSpace))
+    #next_state[2].position = Tuple(collect(next_state[2].position)+randomAction)
 
     sp = Tuple{Int, Int}[]
     for object in next_state
@@ -53,7 +54,10 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     # generate observation
     next_observation = observationModel(next_state)
 
-    o = sp
+    o = Tuple{Int, Int}[]
+    for obs in next_observation
+        push!(o, obs.position)
+    end
 
     # generate reward
     RC_state_now = sp[1]
@@ -78,7 +82,7 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     return (sp=sp, o=o, r=r)
 end
 # State is not in state-space
-solver = POMCPSolver(tree_queries=10, c=10)
+solver = POMCPSolver(tree_queries=10000, c=10)
 planner = solve(solver, pomdp);
 
 k=1

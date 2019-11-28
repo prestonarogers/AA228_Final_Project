@@ -14,7 +14,7 @@ Note: The following numbers are ascribed to objects-
 
 function goToYourHome()
     # Below creates the pond matrix
-    pond, home_pos, sail_dict, police_dict, current_dir = initializePond()
+    pond, home_pos, sail_dict, police_dict, current_dir = initializePond() #is this supposed to be obtainPondMatrix? 
 
     total_sailboats = length(keys(sail_dict))
     total_policeboats = length(keys(police_dict))

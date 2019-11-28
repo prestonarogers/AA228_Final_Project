@@ -81,7 +81,7 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     A_s = actions(p, s)
 
     # IF our action is in our action space, this negative reward will not apply
-    r = any(x->x==a, A_s) ? 0.0 : -100
+    r = any(x->x==a, A_s) ? 0.0 : 0.0
 
     r = r-EuclDistReward
     r = r + rockCollisionReward(corresponding_objects[1], sp[1], p.rockPositions, p.rockReward)

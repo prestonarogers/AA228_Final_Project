@@ -63,7 +63,7 @@ function transitionModel(p::RCBoatProblem, corresponding_objects, s, a)
 
     move = 0
 
-    if rand()< 0.7
+    if rand()< 1
         move = a
     else
         A_s_minus_a = filter!(x->x!=a, A_s)

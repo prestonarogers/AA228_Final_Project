@@ -18,15 +18,15 @@ num_of_rocks_to_create = 1000
 rocks = rand(allStates, num_of_rocks_to_create)
 
 total_policeBoats = 1
-total_sailBoats = 1
+total_sailBoats = 0
 
 initialPosition = (5,5)
-myPond = pond(height=20, width=20)
+myPond = pond(height=50, width=50)
 
 # Create the starting state array.
 starting_state, corresponding_objects = createEnvironment(myPond, initialPosition, total_policeBoats, total_sailBoats)
 
-pomdp = RCBoatProblem(allStates, allActions, rocks, (50,48), (5,5), starting_state, corresponding_objects, -5, -1, 10000, 10, 0.8)
+pomdp = RCBoatProblem(allStates, allActions, rocks, (50,48), (5,5), starting_state, corresponding_objects, -5, -1, 100000, 10, 0.8)
 discount(p::RCBoatProblem) = p.discountFactor
 isterminal(p::RCBoatProblem, s::AbstractArray) = isequal(s[1],p.homePosition)
 initialstate_distribution(p::RCBoatProblem) = Deterministic(collect(p.state));
@@ -72,7 +72,7 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
 
 
     # generate observation
-    o = []
+    o = s
 
     # generate reward
 
@@ -81,7 +81,7 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     A_s = actions(p, s)
 
     # IF our action is in our action space, this negative reward will not apply
-    r = any(x->x==a, A_s) ? 0.0 : -1000
+    r = any(x->x==a, A_s) ? 0.0 : -100
 
     r = r-EuclDistReward
     r = r + rockCollisionReward(corresponding_objects[1], sp[1], p.rockPositions, p.rockReward)

@@ -82,7 +82,7 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     return (sp=sp, o=o, r=r)
 end
 # State is not in state-space
-solver = POMCPSolver(tree_queries=10000, c=10)
+solver = POMCPSolver(tree_queries=1000, c=10)
 planner = solve(solver, pomdp);
 
 k=1

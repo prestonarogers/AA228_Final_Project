@@ -30,21 +30,17 @@ end
 
 
 # All possible states and actions
-allStates = [(i,j) for i in collect(1:50) for j in collect(1:50)];
+allStates = [(i,j) for i in collect(1:20) for j in collect(1:20)];
 allActions = [(i,j) for i in collect(-1:1) for j in collect(-1:1)];
 
 # Define how many rocks there will be on the GridWorld, and place them randomly
-num_of_rocks_to_create = 1000
+num_of_rocks_to_create = 30
 rocks = rand(allStates, num_of_rocks_to_create)
 
-# Create the starting state array.
-starting_state, corresponding_objects = createEnvironment(myPond, initialPosition, total_policeBoats, total_sailBoats)
-
-pomdp = RCBoatProblem(allStates, allActions, rocks, (50,48), (5,5), (10,10), -5, -1000, -1, 10000, 10, 0.8)
+pomdp = RCBoatProblem(allStates, allActions, rocks, (21,20), (5,5), (10,10), -5, -1000, -1, 10000, 10, 0.8)
 discount(p::RCBoatProblem) = p.discountFactor
 isterminal(p::RCBoatProblem, s::AbstractArray) = isequal(s[1],p.homePosition)
 initialstate_distribution(p::RCBoatProblem) = Deterministic([p.RC_initialPosition, p.police_initialPosition]);
-
 
 # Calculate the Euclidean distance between point a and b.
 function EuclideanDistance(a,b)

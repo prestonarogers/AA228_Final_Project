@@ -40,7 +40,10 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     A_s = actions(p, state)
 
     # generate next state
-    next_state = transitionModel(p, state, a)
+    #next_state = transitionModel(p, state, a)
+    next_state = deepcopy(state)
+    next_state[1].position = Tuple(collect(next_state[1].position)+collect(a))
+    next_state[2].position = Tuple(collect(next_state[2].position)+collect(rand(p.actionSpace)))
 
     sp = Tuple{Int, Int}[]
     for object in next_state
@@ -71,10 +74,10 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
             r = r + object.reward
         end
     end
-println((s=s, sp=sp, o=o, r=r))
+#println((s=s, sp=sp, o=o, r=r))
     return (sp=sp, o=o, r=r)
 end
-
+# State is not in state-space
 solver = POMCPSolver(tree_queries=10, c=10)
 planner = solve(solver, pomdp);
 

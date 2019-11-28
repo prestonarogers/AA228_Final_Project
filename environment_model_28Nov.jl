@@ -10,7 +10,7 @@ function observationModel(corresponding_objects, s_prime)
     # the action taken given s_prime
 
     # Create the observation variable
-    observation = deepcopy(s_prime)
+    observation = [position for position in s_prime]
 
     # The actual new position of our boat
     a = collect(s_prime[1])
@@ -56,7 +56,7 @@ end
 function transitionModel(p::RCBoatProblem, corresponding_objects, s, a)
     global myPond
 
-    s_prime = deepcopy(s)
+    s_prime = [position for position in s]
 
     # Below moves the rc boat
     A_s = actions(p, s)

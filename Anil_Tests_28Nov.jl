@@ -70,7 +70,6 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     # First element of this Array should always be the RC boat.
     sp = transitionModel(p, p.corresponding_objects, s, a)
 
-
     # generate observation
     o = s
 
@@ -84,12 +83,12 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     r = any(x->x==a, A_s) ? 0.0 : 0.0
 
     r = r-EuclDistReward
-    r = r + rockCollisionReward(corresponding_objects[1], sp[1], p.rockPositions, p.rockReward)
+    r = r + rockCollisionReward(p.corresponding_objects[1], sp[1], p.rockPositions, p.rockReward)
 
     # We skip over the first object because that is our RC boat.
     for obj_index in 2:length(sp)
         if collisionDetected(p.corresponding_objects[1], sp[1], p.corresponding_objects[obj_index], sp[obj_index])
-            r = r + corresponding_objects[obj_index].reward
+            r = r + p.corresponding_objects[obj_index].reward
         end
     end
 

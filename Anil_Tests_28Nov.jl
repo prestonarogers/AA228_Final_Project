@@ -5,29 +5,9 @@ import POMDPs: initialstate_distribution, actions, gen, discount, isterminal
 using POMDPModelTools # for Deterministic
 using BasicPOMCP
 using POMDPSimulators
-Random.seed!(1);
+#Random.seed!(1);
 
-
-
-mutable struct RCBoatProblem <: POMDPs.POMDP{AbstractArray,Tuple,AbstractArray}
-    # To simplify things, define every parameter related to the problem in this struct!
-    stateSpace::AbstractArray  # the entire GridWorld
-    actionSpace::AbstractArray  # all possible actions takeable (checks legallity later)
-    rockPositions::AbstractArray  # where are the rocks?
-
-    homePosition::Tuple  # where am I trying to reach?
-    RC_initialPosition::Tuple  # where did the boat start at?
-    police_initialPosition::Tuple  # where did the police start at?
-
-    rockReward::Float64  # reward for hitting a rock (should be negative!)
-    policeReward::Float64  # reward for getting caught to a police boat (should be highly negative!)
-    movementReward::Float64  # for each action I take, there should be a cost (should be negative!)
-    reachingHomeReward::Float64  # reward for reaching home (should be highly positive!)
-
-    gettingCaughtDist::Float64  # Eucledean distance that will make us get caught to the police
-    discountFactor::Float64  # discount factor (gamma)
-end
-
+include("environment_model_28Nov.jl")
 
 # All possible states and actions
 allStates = [(i,j) for i in collect(1:50) for j in collect(1:50)];
@@ -37,13 +17,19 @@ allActions = [(i,j) for i in collect(-1:1) for j in collect(-1:1)];
 num_of_rocks_to_create = 1000
 rocks = rand(allStates, num_of_rocks_to_create)
 
+total_policeBoats = 1
+total_sailBoats = 1
+
+initialPosition = (5,5)
+myPond = pond(height=20, width=20)
+
 # Create the starting state array.
 starting_state, corresponding_objects = createEnvironment(myPond, initialPosition, total_policeBoats, total_sailBoats)
 
-pomdp = RCBoatProblem(allStates, allActions, rocks, (50,48), (5,5), (10,10), -5, -1000, -1, 10000, 10, 0.8)
+pomdp = RCBoatProblem(allStates, allActions, rocks, (50,48), (5,5), starting_state, corresponding_objects, -5, -1, 10000, 10, 0.8)
 discount(p::RCBoatProblem) = p.discountFactor
 isterminal(p::RCBoatProblem, s::AbstractArray) = isequal(s[1],p.homePosition)
-initialstate_distribution(p::RCBoatProblem) = Deterministic([p.RC_initialPosition, p.police_initialPosition]);
+initialstate_distribution(p::RCBoatProblem) = Deterministic(collect(p.state));
 
 
 # Calculate the Euclidean distance between point a and b.
@@ -78,42 +64,38 @@ end
 noise(x) = ceil(Int, abs(x - 5)/sqrt(2) + 1e-2)
 
 function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
-    # generate next state
     RC_state_now = s[1]
-    police_state_now = s[2]
-
-    RC_state_next = Tuple(collect(s[1])+collect(a))  # just add s and a
-    # police_state_next = police_state_now
-    random_action = collect(rand(p.actionSpace,1))[1]
-    police_state_next = Tuple(collect(s[2])+collect(random_action))
 
     # sp (next state) is an Array <: AbstractArray of Tuples.
     # First element of this Array should always be the RC boat.
-    sp = [RC_state_next, police_state_next]
+    sp = transitionModel(p, p.corresponding_objects, s, a)
 
 
     # generate observation
-    o = s
+    o = []
 
     # generate reward
 
     EuclDistReward = EuclideanDistance(p.homePosition,RC_state_now)
 
-    if RC_state_next in p.rockPositions  # hitting rock reward
-        r = p.rockReward - EuclDistReward
-    elseif isequal(RC_state_next, p.homePosition)  # reaching home reward
-        r = p.reachingHomeReward - EuclDistReward
-    elseif isequal(RC_state_next, police_state_next)  # hitting a police (need to make it "entering perimeter" instead -- use p.gettingCaughtDist).
-        r = p.policeReward - EuclDistReward
-    else
-        r = p.movementReward - EuclDistReward  # just the reward for making a movement
+    A_s = actions(p, s)
+
+    # IF our action is in our action space, this negative reward will not apply
+    r = any(x->x==a, A_s) ? 0.0 : -1000
+
+    r = r-EuclDistReward
+    r = r + rockCollisionReward(corresponding_objects[1], sp[1], p.rockPositions, p.rockReward)
+
+    # We skip over the first object because that is our RC boat.
+    for obj_index in 2:length(sp)
+        if collisionDetected(p.corresponding_objects[1], sp[1], p.corresponding_objects[obj_index], sp[obj_index])
+            r = r + corresponding_objects[obj_index].reward
+        end
     end
 
     return (sp=sp, o=o, r=r)
 
 end
-
-
 
 solver = POMCPSolver(tree_queries=1000, c=10)
 planner = solve(solver, pomdp);

@@ -42,7 +42,7 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     # generate next state
     next_state = transitionModel(p, state, a)
 
-    sp = []
+    sp = Tuple{Int, Int}[]
     for object in next_state
         push!(sp, object.position)
     end
@@ -50,14 +50,10 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     # generate observation
     next_observation = observationModel(next_state)
 
-    o = []
-
-    for obs in next_observation
-        push!(o,obs.position)
-    end
+    o = sp
 
     # generate reward
-    RC_state_now = s[1]
+    RC_state_now = sp[1]
     EuclDistReward = EuclideanDistance(p.homePosition,RC_state_now)
 
     # Assign the state variable to our next_state
@@ -75,15 +71,19 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
             r = r + object.reward
         end
     end
-    println((s=s, sp=sp, o=o, r=r))
+println((s=s, sp=sp, o=o, r=r))
     return (sp=sp, o=o, r=r)
 end
 
-solver = POMCPSolver(tree_queries=100, c=10)
+solver = POMCPSolver(tree_queries=10, c=10)
 planner = solve(solver, pomdp);
 
+k=1
 for (s,a,r,sp,o) in stepthrough(pomdp, planner, "s,a,r,sp,o")
+    global k
+    println("HELLOOOOOOOOOOOOOOO")
     @show (s,a,r,sp,o)
+    k = k + 1
 end
 
 

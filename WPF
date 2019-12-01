@@ -1,0 +1,41 @@
+
+struct ObsDist
+    obs::AbstractArray
+   variance::AbstractArray
+end
+
+
+function POMDPs.observation(m::RCBoatProblem, a::Tuple, sp::AbstractArray)
+
+#observation=deepcopy(sp)
+observation=[collect(i) for i in sp]
+@show observation
+variance=[]
+push!(variance, ones(2))
+for object_index in 2:length(sp)
+    push!(variance,max(EuclideanDistance(sp[1],sp[object_index]),2).*ones(2))
+end
+
+return ObsDist(observation, variance)
+end
+
+function POMDPs.pdf(d::ObsDist, o::AbstractArray)
+
+out=[]
+for obs_index in 1:length(o)
+@show d.obs[obs_index]
+push!(out,Distributions.pdf(MvNormal(d.obs[obs_index], d.variance[obs_index]), o[obs_index]))
+end
+
+return out
+
+end
+
+
+
+filter = SIRParticleFilter(pomdp, 1000)
+
+
+for (s,a,r,sp,o) in stepthrough(pomdp, planner, filter, "s,a,r,sp,o")
+    @show (s,a,r,sp,o)
+end

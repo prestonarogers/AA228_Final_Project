@@ -131,8 +131,14 @@ function POMDPs.observation(m::RCBoatProblem, a::Tuple, sp::AbstractArray)
 end
 
 function POMDPs.pdf(d::ObsDist, o::AbstractArray)
-    out= 0.5
-    return out
+    out=[]
+    @show o
+    for obs_index in 1:length(o)
+        # @show d.obs[obs_index]
+        MJ = MvNormal(d.obs[obs_index], d.variance[obs_index])
+        push!(out,Distributions.pdf(MJ, collect(o[obs_index])))
+    end
+    return prod(out)
 end
 
 

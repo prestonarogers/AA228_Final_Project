@@ -21,9 +21,10 @@ function observationModel(corresponding_objects, s_prime)
 
         euclidean_dist = EuclideanDistance(a,b)
 
-        #object_var = max(euclidean_dist/20,2).*ones(2)
+        object_var = max(euclidean_dist/5,1).*ones(2)
 
-        object_var = 0 .* ones(2)
+        # object_var = 0 .* ones(2)
+        # object_var = max(ones(2))
 
         # The normal distribution for picking the observed
         # police-boat location
@@ -37,7 +38,8 @@ function observationModel(corresponding_objects, s_prime)
         observation[object_index] = object_obs_floor
     end
 
-    rc_var = zeros(2)
+    # rc_var = zeros(2)
+    rc_var = ones(2)
 
     rc_normal = MvNormal(a, rc_var)
 

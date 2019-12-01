@@ -1,3 +1,4 @@
+println("Loading packages...")
 using POMDPs
 using Distributions: Normal
 using Random
@@ -6,27 +7,28 @@ using POMDPModelTools # for Deterministic
 using BasicPOMCP
 using POMDPSimulators
 #Random.seed!(1);
+println("Loaded packages!")
 
 include("environment_model_28Nov.jl")
 
+total_policeBoats = 2
+total_sailBoats = 1
+
+initialPosition = (5,5)
+myPond = pond(height=30, width=30)
+
 # All possible states and actions
-allStates = [(i,j) for i in collect(1:50) for j in collect(1:50)];
+allStates = [(i,j) for i in collect(1:myPond.width) for j in collect(1:myPond.height)];
 allActions = [(i,j) for i in collect(-1:1) for j in collect(-1:1)];
 
 # Define how many rocks there will be on the GridWorld, and place them randomly
-num_of_rocks_to_create = 1000
+num_of_rocks_to_create = 500
 rocks = rand(allStates, num_of_rocks_to_create)
-
-total_policeBoats = 1
-total_sailBoats = 0
-
-initialPosition = (5,5)
-myPond = pond(height=50, width=50)
 
 # Create the starting state array.
 starting_state, corresponding_objects = createEnvironment(myPond, initialPosition, total_policeBoats, total_sailBoats)
 
-pomdp = RCBoatProblem(allStates, allActions, rocks, (50,48), (5,5), starting_state, corresponding_objects, -5, -1, 100000, 10, 0.8)
+pomdp = RCBoatProblem(allStates, allActions, rocks, (30,30), (5,5), starting_state, corresponding_objects, -5, -1, 100000, 10, 0.8)
 discount(p::RCBoatProblem) = p.discountFactor
 isterminal(p::RCBoatProblem, s::AbstractArray) = isequal(s[1],p.homePosition)
 initialstate_distribution(p::RCBoatProblem) = Deterministic(collect(p.state));
@@ -71,7 +73,8 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     sp = transitionModel(p, p.corresponding_objects, s, a)
 
     # generate observation
-    o = s
+    o = observationModel(p.corresponding_objects, sp)
+    # @show o
 
     # generate reward
 
@@ -80,7 +83,7 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
     A_s = actions(p, s)
 
     # IF our action is in our action space, this negative reward will not apply
-    r = any(x->x==a, A_s) ? 0.0 : 0.0
+    r = any(x->x==a, A_s) ? 0.0 : -100.0
 
     r = r-EuclDistReward
     r = r + rockCollisionReward(p.corresponding_objects[1], sp[1], p.rockPositions, p.rockReward)
@@ -96,12 +99,53 @@ function gen(p::RCBoatProblem, s::AbstractArray, a::Tuple, rng::AbstractRNG)
 
 end
 
+println("Starting solver...")
 solver = POMCPSolver(tree_queries=1000, c=10)
 planner = solve(solver, pomdp);
 
-for (s,a,r,sp,o) in stepthrough(pomdp, planner, "s,a,r,sp,o")
+
+
+
+
+using ParticleFilters
+using Distributions
+
+struct ObsDist
+    obs::AbstractArray
+   variance::AbstractArray
+end
+
+
+function POMDPs.observation(m::RCBoatProblem, a::Tuple, sp::AbstractArray)
+    #observation=deepcopy(sp)
+    observation=[collect(i) for i in sp]
+    variance=[]
+    push!(variance, ones(2))
+    for object_index in 2:length(sp)
+        push!(variance,max(EuclideanDistance(sp[1],sp[object_index])/20,2).*ones(2))
+    end
+
+    # @show observation
+    # @show variance
+    return ObsDist(observation, variance)
+end
+
+function POMDPs.pdf(d::ObsDist, o::AbstractArray)
+    out= 0.5
+    return out
+end
+
+
+
+filter = SIRParticleFilter(pomdp, 1000)
+
+
+for (s,a,r,sp,o) in stepthrough(pomdp, planner, filter, "s,a,r,sp,o")
     @show (s,a,r,sp,o)
 end
+
+
+
 
 
 ## This is for debugging. It will print the optimal action for a single state.
